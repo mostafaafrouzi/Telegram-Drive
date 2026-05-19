@@ -3,7 +3,7 @@ use tauri::Manager;
 use grammers_client::Client;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use grammers_mtsender::SenderPool;
+use grammers_mtsender::{SenderPool, ConnectionParams};
 use grammers_session::storages::SqliteSession;
 use tokio::sync::oneshot;
 use tokio::time::Duration;
@@ -13,6 +13,7 @@ use grammers_tl_types as tl;
 use crate::TelegramState;
 use crate::models::{AuthResult};
 use crate::commands::utils::map_error;
+use crate::commands::proxy_settings;
 use grammers_client::SignInError;
 
 /// Ensures the Telegram client is initialized.
@@ -77,7 +78,29 @@ pub async fn ensure_client_initialized(
     };
         
     let session = Arc::new(session);
-    let pool = SenderPool::new(session, api_id);
+
+    // Build connection params with proxy settings
+    let proxy_settings = proxy_settings::load_proxy_settings(app_handle);
+    let proxy_url = proxy_settings::build_proxy_url(&proxy_settings);
+    let connection_params = ConnectionParams {
+        proxy_url,
+        ..Default::default()
+    };
+    if connection_params.proxy_url.is_some() {
+        log::info!("Using proxy: {:?}", connection_params.proxy_url.as_ref().map(|u| {
+            // Mask password in logs
+            if let Ok(mut parsed) = url::Url::parse(u) {
+                if parsed.password().is_some() {
+                    let _ = parsed.set_password(Some("***"));
+                }
+                parsed.to_string()
+            } else {
+                u.clone()
+            }
+        }));
+    }
+
+    let pool = SenderPool::with_configuration(session, api_id, connection_params);
     let client = Client::new(&pool);
     
     // Create shutdown channel for this runner
