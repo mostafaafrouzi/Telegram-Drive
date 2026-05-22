@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'  # Trigger on version tags like v1.0.0, v1.0.1
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.5.0)'
+        required: true
+        type: string
 
 jobs:
   create-release:
@@ -15,10 +21,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Get version from tag
+      - name: Get version
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
       
+      - name: Create or find tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git tag "v${{ steps.get_version.outputs.VERSION }}" || true
+          git push origin "v${{ steps.get_version.outputs.VERSION }}" || true
+
       - name: Create Release
         id: create-release
         uses: actions/github-script@v7
@@ -29,7 +46,7 @@ jobs:
               repo: context.repo.repo,
               tag_name: `v${{ steps.get_version.outputs.VERSION }}`,
               name: `Telegram Drive v${{ steps.get_version.outputs.VERSION }}`,
-              body: `Feature: Added a donation button and popup modal to the main login screen to support the project via PayPal, Litecoin, and Bitcoin.\n\nSee the assets below to download and install.`,
+              body: `## What's New\n\n- **Proxy Support**: SOCKS5, HTTP, and System Proxy modes for routing Telegram traffic\n- Proxy settings UI in the Settings modal with host, port, and optional authentication\n- Automatic reconnection when proxy settings change\n\nSee the assets below to download and install.`,
               draft: true,
               prerelease: false
             });
