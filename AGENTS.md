@@ -29,6 +29,7 @@ All commands run from `app/`:
 
 ### Key Caveats
 
+- **Rust 1.85+ required.** The patched `grammers-mtsender` crate uses `edition = "2024"`, which needs Rust 1.85+. If the pre-installed Rust is older, run `rustup update stable && rustup default stable`.
 - **First Rust build takes ~2 minutes** to compile 700+ crates. Subsequent builds are incremental and fast (~5s for Rust changes).
 - **`npm run tauri dev`** starts both the Vite dev server (port 1420) and compiles/runs the Rust backend. The Vite `beforeDevCommand` is already configured in `src-tauri/tauri.conf.json`.
 - **DRI3/EGL warnings** (e.g., "Could not get DRI3 device") are expected in cloud VMs and do not affect functionality. The app renders fine via software rendering.
